@@ -112,7 +112,7 @@ Every transaction is real and verifiable on Sepolia Etherscan.
 ```bash
 git clone https://github.com/yourusername/defi-shield
 cd defi-shield
-npm install
+pnpm install
 ```
 
 ### Environment Setup
