@@ -15,9 +15,7 @@ const ABI = [
   "function getPrice() view returns (uint256)"
 ];
 
-// ─── WebSocket Dashboard Server ───────────────────────────────────
 const wss = new WebSocketServer({ port: 3001 });
-// second server for protect.js to report to
 const wss2 = new WebSocketServer({ port: 3002 });
 wss2.on("connection", (ws) => {
   ws.on("message", (data) => {
@@ -36,7 +34,6 @@ wss.on("connection", (ws) => {
   dashboardClient = ws;
   console.log("📊 Dashboard connected!");
   
-  // listen for messages FROM protect.js
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data);
@@ -54,7 +51,6 @@ function sendToDashboard(data) {
   }
 }
 
-// ─── AI via Groq ──────────────────────────────────────────────────
 async function aiExplanation(amountIn, victimGas, botGas, expected, actual, blockNum) {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -91,7 +87,6 @@ async function aiExplanation(amountIn, victimGas, botGas, expected, actual, bloc
   return null;
 }
 
-// ─── Static fallback ──────────────────────────────────────────────
 function staticExplanation(amountIn, victimGas, botGas, expected, actual) {
   const vGas = parseFloat(ethers.formatUnits(victimGas, "gwei"));
   const bGas = parseFloat(ethers.formatUnits(botGas, "gwei"));
@@ -114,7 +109,6 @@ function staticExplanation(amountIn, victimGas, botGas, expected, actual) {
   ].join("\n");
 }
 
-// ─── Main ─────────────────────────────────────────────────────────
 async function main() {
   const wsProvider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_WSS);
   const httpProvider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_HTTP);
@@ -126,7 +120,6 @@ async function main() {
   console.log("📊 Dashboard server running on ws://localhost:3001");
   console.log("👀 Listening for vulnerable swaps...\n");
 
-  // fund bot if needed
   let bal = await contract.tokenA(bot.address);
   if (bal < ethers.parseEther("1")) {
     await (await contract.getTokens()).wait();
@@ -155,20 +148,17 @@ async function main() {
       console.log("📝 Tx:", txHash);
       console.log("💸 Amount:", ethers.formatEther(amountIn), "Token A");
 
-      // send to dashboard
       sendToDashboard({
         type: "detected",
         amountIn: ethers.formatEther(amountIn),
         txHash
       });
 
-      // ensure bot has tokens
       let botBal = await contract.tokenA(bot.address);
       if (botBal < amountIn) {
         await (await contract.getTokens()).wait();
       }
 
-      // record state before attack
       const victimB_Before = await contract.tokenB(victimAddr);
       const reserveA_before = await contract.reserveA();
       const reserveB_before = await contract.reserveB();
@@ -189,13 +179,11 @@ async function main() {
       await frontTx.wait();
       console.log("✅ Front-run confirmed");
 
-      // wait for victim tx
       const victimRec = await httpProvider.waitForTransaction(txHash);
       console.log("🎯 Victim confirmed in block", victimRec.blockNumber);
       console.log("🔗 https://sepolia.etherscan.io/tx/" + txHash);
       console.log("🔗 https://sepolia.etherscan.io/block/" + victimRec.blockNumber);
 
-      // calculate loss
       const victimB_After = await contract.tokenB(victimAddr);
       const actualOut = victimB_After - victimB_Before;
       const loss = expectedOut - actualOut;
@@ -205,7 +193,6 @@ async function main() {
       console.log("📉 Actual:  ", ethers.formatEther(actualOut), "Token B");
       console.log("💸 Loss:    ", ethers.formatEther(loss), "Token B");
 
-      // get AI analysis
       const aiText = await aiExplanation(
         ethers.formatEther(amountIn),
         ethers.formatUnits(tx.gasPrice, "gwei"),
@@ -228,7 +215,6 @@ async function main() {
       console.log(finalReport);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-      // send full attack data to dashboard
       sendToDashboard({
         type: "confirmed",
         amountIn: ethers.formatEther(amountIn),
