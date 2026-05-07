@@ -17,7 +17,6 @@ app.use(express.static("public"));
 
 const ETHERSCAN_API = "https://api-sepolia.etherscan.io/api";
 
-// ─── store demo SSE clients ───────────────────────────────────────
 let demoClients = [];
 
 function sendToDemo(msg) {
@@ -28,7 +27,6 @@ function sendToDemo(msg) {
   });
 }
 
-// ─── connect to bot WebSocket and forward to demo page ───────────
 function connectToBotWS() {
   const ws = new WebSocket("ws://localhost:3001");
 
@@ -66,7 +64,6 @@ function connectToBotWS() {
         }
         sendToDemo({ type: "attack", data: msg });
 
-        // auto close demo after attack is fully shown
         setTimeout(() => {
           sendToDemo({ type: "done", message: "✅ Demo complete!" });
           demoClients = [];
@@ -91,10 +88,8 @@ function connectToBotWS() {
   });
 }
 
-// connect to bot on startup
 connectToBotWS();
 
-// ─── fetch transactions for a wallet ─────────────────────────────
 async function getTransactions(address) {
   try {
     const url = `${ETHERSCAN_API}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=YourApiKeyToken`;
@@ -107,7 +102,6 @@ async function getTransactions(address) {
   }
 }
 
-// ─── AI explanation ───────────────────────────────────────────────
 async function explainAttack(attack) {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -138,7 +132,6 @@ async function explainAttack(attack) {
   }
 }
 
-// ─── scan API ─────────────────────────────────────────────────────
 app.post("/api/scan", async (req, res) => {
   const { address } = req.body;
 
@@ -176,7 +169,6 @@ app.post("/api/scan", async (req, res) => {
   });
 });
 
-// ─── live demo SSE ────────────────────────────────────────────────
 app.get("/api/demo", (req, res) => {
   console.log("🎬 Demo client connected");
 
@@ -186,16 +178,11 @@ app.get("/api/demo", (req, res) => {
     "Connection":    "keep-alive"
   });
 
-  // add this client to list so bot events reach it
   demoClients.push(res);
 
-  // welcome messages
   res.write(`data: ${JSON.stringify({ type: "log", message: "✅ Connected to MEV bot server" })}\n\n`);
   res.write(`data: ${JSON.stringify({ type: "log", message: "👀 Bot is watching mempool..." })}\n\n`);
   res.write(`data: ${JSON.stringify({ type: "log", message: "⏳ Preparing victim transaction..." })}\n\n`);
-
-  // wait 3 seconds then trigger victim
-  // this gives bot time to be fully ready
   setTimeout(() => {
     res.write(`data: ${JSON.stringify({ type: "log", message: "🎯 Sending vulnerable swap transaction..." })}\n\n`);
 
@@ -221,13 +208,11 @@ app.get("/api/demo", (req, res) => {
 
   }, 3000);
 
-  // remove client if browser disconnects
   req.on("close", () => {
     demoClients = demoClients.filter(c => c !== res);
   });
 });
 
-// ─── serve pages ──────────────────────────────────────────────────
 app.get("/",        (req, res) => res.sendFile(path.join(__dirname, "public/index.html")));
 app.get("/results", (req, res) => res.sendFile(path.join(__dirname, "public/results.html")));
 app.get("/demo",    (req, res) => res.sendFile(path.join(__dirname, "public/demo.html")));
