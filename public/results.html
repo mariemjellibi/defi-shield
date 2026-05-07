@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DeFi Shield — Scan Results</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>⚡ SCAN RESULTS ⚡</h1>
+      <p id="address-display">SCANNING... <span class="blink">█</span></p>
+    </div>
+
+    <div class="loading" id="loading">
+      <p>⚡ SCANNING BLOCKCHAIN...<span class="blink">█</span></p>
+    </div>
+
+    <div id="results-content" style="display:none;">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">TRANSACTIONS SCANNED</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-label">ATTACKS FOUND</div>
+          <div class="stat-value red" id="stat-attacks">0</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-label">TOTAL LOSS (ETH GAS)</div>
+          <div class="stat-value red" id="stat-loss">—</div>
+        </div>
+      </div>
+
+      <div id="attacks-container"></div>
+
+      <div class="tips-grid">
+        <div class="tip-card">
+          <h4>// SET SLIPPAGE TOLERANCE</h4>
+          <p>Always set max slippage to 1-2% when swapping on Uniswap or any DEX. This limits how much a bot can move the price against you.</p>
+        </div>
+        <div class="tip-card">
+          <h4>// USE MEV BLOCKER</h4>
+          <p>Add MEV Blocker RPC to MetaMask (mevblocker.io). Your transactions go through a private channel that bots cannot see.</p>
+        </div>
+        <div class="tip-card">
+          <h4>// NEVER SHARE PRIVATE KEY</h4>
+          <p>Your wallet address is public and safe to share. Your private key and seed phrase are secret — never enter them on any website.</p>
+        </div>
+        <div class="tip-card">
+          <h4>// WATCH FOR DUST ATTACKS</h4>
+          <p>Never interact with random tokens that appear in your wallet. Scammers send tiny amounts to track your activity and link your identity.</p>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:30px;">
+        <a href="/" class="btn" style="display:inline-block; padding: 12px 40px;">
+          ← SCAN ANOTHER WALLET
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    const address = localStorage.getItem("scanAddress");
+
+    if (!address) {
+      window.location.href = "/";
+    }
+
+    document.getElementById("address-display").innerHTML =
+      `WALLET: ${address.slice(0,6)}...${address.slice(-4)} <span class="blink">█</span>`;
+
+    document.getElementById("loading").style.display = "block";
+
+    // call backend API
+    fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("loading").style.display    = "none";
+      document.getElementById("results-content").style.display = "block";
+
+      document.getElementById("stat-total").textContent   = data.totalTxs || 0;
+      document.getElementById("stat-attacks").textContent = data.attackCount || 0;
+      document.getElementById("stat-loss").textContent    = data.attackCount > 0
+        ? data.attackCount + " detected"
+        : "none";
+
+      const container = document.getElementById("attacks-container");
+
+      if (!data.attacks || data.attacks.length === 0) {
+        container.innerHTML = `
+          <div class="safe-card">
+            <h3>✅ NO ATTACKS DETECTED</h3>
+            <p>No sandwich attacks found in your recent transactions.</p>
+            <p style="margin-top:8px;">Stay protected by following the tips below.</p>
+          </div>
+        `;
+        return;
+      }
+
+      data.attacks.forEach((attack, i) => {
+        const card = document.createElement("div");
+        card.className = "attack-card";
+        card.innerHTML = `
+          <div class="badge">SANDWICH ATTACK #${i + 1}</div>
+          <h3>🚨 MEV Bot Front-Run Detected</h3>
+          <div class="attack-detail">↳ Block: <span>#${attack.block}</span></div>
+          <div class="attack-detail">↳ Time: <span>${attack.timestamp}</span></div>
+          <div class="attack-detail">↳ Your gas: <span>${attack.victimGas} gwei</span></div>
+          <div class="attack-detail">↳ Bot gas: <span>${attack.botGas} gwei</span> (jumped ahead)</div>
+          <div class="attack-detail">↳ Bot address: <span>${attack.botAddr}</span></div>
+          <div class="attack-links">
+            <a href="https://sepolia.etherscan.io/tx/${attack.victimTx}" target="_blank">your tx ↗</a>
+            <a href="https://sepolia.etherscan.io/tx/${attack.botTx}"    target="_blank">bot tx ↗</a>
+            <a href="https://sepolia.etherscan.io/block/${attack.block}" target="_blank">block ↗</a>
+          </div>
+          <div class="ai-box">
+            <div class="ai-label">// AI ANALYSIS</div>
+            <p>${attack.aiAnalysis || "Analyzing..."}</p>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    })
+    .catch(err => {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("results-content").style.display = "block";
+      document.getElementById("attacks-container").innerHTML = `
+        <div class="safe-card">
+          <h3>⚠️ SCAN ERROR</h3>
+          <p>Could not fetch transactions. Make sure the server is running.</p>
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>

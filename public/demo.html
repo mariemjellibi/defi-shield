@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DeFi Shield — Live Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>⚡ LIVE ATTACK DEMO ⚡</h1>
+      <p>WATCH A REAL MEV SANDWICH ATTACK HAPPEN <span class="blink">█</span></p>
+    </div>
+
+    <div class="scan-box" style="text-align:center;">
+      <p style="color:#00aa2b; font-size:12px; letter-spacing:2px; margin-bottom:20px;">
+        Click the button below to trigger a real sandwich attack on Sepolia testnet.
+        The bot will detect and front-run the victim transaction in real time.
+      </p>
+      <button class="btn" onclick="runDemo()" id="demo-btn">
+        ⚡ TRIGGER LIVE SANDWICH ATTACK
+      </button>
+    </div>
+
+    <div class="panel" style="border:1px solid #00ff41; padding:20px; margin-bottom:20px;">
+      <div style="font-size:11px; letter-spacing:3px; color:#00aa2b;
+                  border-bottom:1px solid #003310; padding-bottom:8px; margin-bottom:12px;">
+        // LIVE TERMINAL
+      </div>
+      <div id="terminal" style="font-size:12px; color:#00ff41;
+                                 line-height:1.8; min-height:200px;
+                                 max-height:500px; overflow-y:auto;">
+        <span style="color:#005914;">Waiting for demo to start...<span class="blink">█</span></span>
+      </div>
+    </div>
+
+    <div id="result-box" style="display:none;">
+      <div class="ai-box">
+        <div class="ai-label">// WHAT JUST HAPPENED</div>
+        <p id="result-text" style="font-size:12px; color:#00cfff; line-height:1.8;"></p>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:30px;">
+      <a href="/" style="color:#00aa2b; font-size:12px; letter-spacing:2px;">
+        ← BACK TO SCANNER
+      </a>
+    </div>
+
+  </div>
+
+  <script>
+    function runDemo() {
+      const btn      = document.getElementById("demo-btn");
+      const terminal = document.getElementById("terminal");
+
+      btn.disabled       = true;
+      btn.textContent    = "⏳ ATTACK IN PROGRESS...";
+      terminal.innerHTML = "";
+
+      const addLine = (msg, color = "#00ff41") => {
+        const line         = document.createElement("div");
+        line.style.color   = color;
+        line.style.padding = "2px 0";
+        line.textContent   = msg;
+        terminal.appendChild(line);
+        terminal.scrollTop = terminal.scrollHeight;
+      };
+
+      addLine("Connecting to MEV bot server...", "#00aa2b");
+
+      // connect to server SSE
+      const evtSource = new EventSource("/api/demo");
+
+      evtSource.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+
+        if (msg.type === "log") {
+          let color = "#00ff41";
+          if (msg.message.includes("VICTIM"))    color = "#ffff00";
+          if (msg.message.includes("DETECTED"))  color = "#ffff00";
+          if (msg.message.includes("👤"))        color = "#ffff00";
+          if (msg.message.includes("FRONT-RUN")) color = "#ff3131";
+          if (msg.message.includes("🔴"))        color = "#ff3131";
+          if (msg.message.includes("Loss"))      color = "#ff3131";
+          if (msg.message.includes("💸"))        color = "#ff3131";
+          if (msg.message.includes("https://"))  color = "#00cfff";
+          if (msg.message.includes("🔗"))        color = "#00cfff";
+          if (msg.message.includes("AI"))        color = "#00cfff";
+          if (msg.message.includes("🤖"))        color = "#00cfff";
+          if (msg.message.includes("✅"))        color = "#00ff41";
+          if (msg.message.includes("━"))         color = "#003310";
+          addLine(msg.message, color);
+        }
+
+        if (msg.type === "attack") {
+          // attack data received — show summary
+          const d = msg.data;
+          addLine("", "#00ff41");
+          addLine(`💰 Expected: ${parseFloat(d.expected).toFixed(6)} Token B`, "#00ff41");
+          addLine(`📉 Got:      ${parseFloat(d.actual).toFixed(6)} Token B`, "#ff3131");
+          addLine(`💸 Lost:     ${parseFloat(d.loss).toFixed(6)} Token B`, "#ff3131");
+        }
+
+        if (msg.type === "done") {
+          addLine("", "#00ff41");
+          addLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "#003310");
+          addLine("✅ ATTACK COMPLETE — see Etherscan links above for proof", "#00ff41");
+
+          document.getElementById("result-box").style.display = "block";
+          document.getElementById("result-text").textContent =
+            "A bot detected the victim swap transaction while it was pending in the mempool. " +
+            "By paying double the gas price it jumped ahead in the queue and moved the price " +
+            "before the victim's transaction confirmed. The victim received fewer tokens than " +
+            "expected. Every link above is real and verifiable on Sepolia Etherscan.";
+
+          btn.disabled    = false;
+          btn.textContent = "⚡ RUN AGAIN";
+          evtSource.close();
+        }
+      };
+
+      evtSource.onerror = () => {
+        addLine("⚠️ Cannot connect — make sure bot.js and server.js are running", "#ff3131");
+        btn.disabled    = false;
+        btn.textContent = "⚡ TRY AGAIN";
+        evtSource.close();
+      };
+    }
+  </script>
+</body>
+</html>

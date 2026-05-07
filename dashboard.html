@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MEV Attack Analyzer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      color: #00ff41;
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,255,65,0.03) 2px,
+        rgba(0,255,65,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .header {
+      text-align: center;
+      border: 1px solid #00ff41;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 30px rgba(0,255,65,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, #00ff41, transparent);
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      to { left: 100%; }
+    }
+
+    .header h1 {
+      font-size: 28px;
+      letter-spacing: 6px;
+      text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41;
+    }
+
+    .header p {
+      color: #00aa2b;
+      font-size: 13px;
+      margin-top: 6px;
+      letter-spacing: 2px;
+    }
+
+    .blink {
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      border: 1px solid #00ff41;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0,255,65,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card.danger { border-color: #ff3131; box-shadow: 0 0 10px rgba(255,49,49,0.2); }
+    .stat-card.safe   { border-color: #00ff41; box-shadow: 0 0 10px rgba(0,255,65,0.2); }
+    .stat-card.info   { border-color: #00cfff; box-shadow: 0 0 10px rgba(0,207,255,0.2); }
+
+    .stat-label {
+      font-size: 10px;
+      color: #00aa2b;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      color: #00ff41;
+      text-shadow: 0 0 8px #00ff41;
+    }
+
+    .stat-value.red   { color: #ff3131; text-shadow: 0 0 8px #ff3131; }
+    .stat-value.blue  { color: #00cfff; text-shadow: 0 0 8px #00cfff; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .panel {
+      border: 1px solid #00ff41;
+      padding: 16px;
+      box-shadow: 0 0 10px rgba(0,255,65,0.15);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: #00aa2b;
+      border-bottom: 1px solid #003310;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .timeline {
+      list-style: none;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .timeline li {
+      font-size: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid #001a06;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .timeline li .time {
+      color: #005914;
+      min-width: 95px;
+      font-size: 11px;
+    }
+
+    .tag-victim    { color: #ffff00; text-shadow: 0 0 6px #ffff00; }
+    .tag-bot       { color: #ff3131; text-shadow: 0 0 6px #ff3131; }
+    .tag-ok        { color: #00ff41; text-shadow: 0 0 6px #00ff41; }
+    .tag-prevented { color: #00cfff; text-shadow: 0 0 6px #00cfff; }
+
+    .attack-list {
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .attack-item {
+      border: 1px solid #003310;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: #050f05;
+      transition: border-color 0.3s;
+    }
+
+    .attack-item.prevented {
+      border-color: #00ff41;
+      background: #011a06;
+    }
+
+    .attack-item .loss {
+      color: #ff3131;
+      font-size: 17px;
+      text-shadow: 0 0 8px #ff3131;
+    }
+
+    .attack-item .saved {
+      color: #00ff41;
+      font-size: 17px;
+      text-shadow: 0 0 8px #00ff41;
+    }
+
+    .attack-item .detail {
+      font-size: 11px;
+      color: #00aa2b;
+      margin-top: 4px;
+    }
+
+    .attack-item .links {
+      margin-top: 6px;
+      font-size: 11px;
+    }
+
+    .attack-item .links a {
+      color: #00cfff;
+      text-decoration: none;
+      margin-right: 12px;
+    }
+
+    .attack-item .links a:hover {
+      text-shadow: 0 0 6px #00cfff;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 8px;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .badge-attack    { border: 1px solid #ff3131; color: #ff3131; }
+    .badge-prevented { border: 1px solid #00ff41; color: #00ff41; }
+
+    .ai-panel {
+      border: 1px solid #00cfff;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 0 15px rgba(0,207,255,0.15);
+    }
+
+    .ai-panel .panel-title {
+      color: #00cfff;
+      border-bottom-color: #003344;
+    }
+
+    .ai-text {
+      font-size: 13px;
+      color: #00cfff;
+      line-height: 1.9;
+      white-space: pre-wrap;
+    }
+
+    .status-bar {
+      border: 1px solid #00ff41;
+      padding: 10px 16px;
+      font-size: 11px;
+      color: #00aa2b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 10px rgba(0,255,65,0.15);
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: #00ff41;
+      border-radius: 50%;
+      margin-right: 6px;
+      box-shadow: 0 0 6px #00ff41;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    .dot.red {
+      background: #ff3131;
+      box-shadow: 0 0 6px #ff3131;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #00ff41; }
+
+    .flash {
+      animation: flashIn 0.5s ease-out;
+    }
+
+    @keyframes flashIn {
+      0%   { opacity: 0; transform: translateY(-6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>⚡ MEV SANDWICH ATTACK ANALYZER ⚡</h1>
+    <p>LIVE MEMPOOL MONITORING // SEPOLIA TESTNET <span class="blink">█</span></p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card danger">
+      <div class="stat-label">ATTACKS DETECTED</div>
+      <div class="stat-value red" id="stat-attacks">0</div>
+    </div>
+    <div class="stat-card safe">
+      <div class="stat-label">ATTACKS PREVENTED</div>
+      <div class="stat-value" id="stat-prevented">0</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-label">TOTAL LOSS (TOKEN B)</div>
+      <div class="stat-value red" id="stat-loss">0.000000</div>
+    </div>
+    <div class="stat-card info">
+      <div class="stat-label">LAST BLOCK</div>
+      <div class="stat-value blue" id="stat-block">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">STATUS</div>
+      <div class="stat-value" style="font-size:13px; padding-top:8px;">
+        <span class="dot" id="status-dot"></span><span id="status-text">CONNECTING</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-title">// LIVE TIMELINE</div>
+      <ul class="timeline" id="timeline"></ul>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// EVENTS LOG</div>
+      <div class="attack-list" id="attack-list"></div>
+    </div>
+  </div>
+
+  <div class="ai-panel">
+    <div class="panel-title">// AI ANALYSIS — LATEST ATTACK</div>
+    <div class="ai-text" id="ai-text">Waiting for next attack...</div>
+  </div>
+
+  <div class="status-bar">
+    <span><span class="dot"></span>MEMPOOL LISTENER ACTIVE</span>
+    <span id="clock"></span>
+    <span>CONTRACT: 0xcb50EA7028Ccc307E3C45C7fc0cF3a5475e449cA</span>
+  </div>
+
+  <script>
+    setInterval(() => {
+      document.getElementById("clock").textContent = new Date().toISOString();
+    }, 1000);
+
+    let attackCount   = 0;
+    let preventedCount = 0;
+    let totalLoss     = 0;
+
+    function addTimeline(type, message) {
+      const ul = document.getElementById("timeline");
+      const li = document.createElement("li");
+      li.classList.add("flash");
+      const time = new Date().toISOString().slice(11, 23);
+      li.innerHTML = `<span class="time">${time}</span><span class="event tag-${type}">${message}</span>`;
+      ul.prepend(li);
+      // keep max 50 entries
+      while (ul.children.length > 50) ul.removeChild(ul.lastChild);
+    }
+
+    function addAttack(data) {
+      attackCount++;
+      totalLoss += parseFloat(data.loss);
+
+      document.getElementById("stat-attacks").textContent = attackCount;
+      document.getElementById("stat-loss").textContent    = totalLoss.toFixed(6);
+      document.getElementById("stat-block").textContent   = data.block;
+
+      const list = document.getElementById("attack-list");
+      const div  = document.createElement("div");
+      div.className = "attack-item flash";
+      div.innerHTML = `
+        <div class="badge badge-attack">SANDWICH ATTACK</div>
+        <div class="loss">-${parseFloat(data.loss).toFixed(6)} TOKEN B</div>
+        <div class="detail">↳ swapped: ${data.amountIn} Token A</div>
+        <div class="detail">↳ victim gas: ${parseFloat(data.victimGas).toFixed(1)} gwei  →  bot gas: ${parseFloat(data.botGas).toFixed(1)} gwei</div>
+        <div class="detail">↳ expected: ${parseFloat(data.expected).toFixed(6)} Token B</div>
+        <div class="detail">↳ received: ${parseFloat(data.actual).toFixed(6)} Token B</div>
+        <div class="detail">↳ block: #${data.block}</div>
+        <div class="links">
+          <a href="https://sepolia.etherscan.io/tx/${data.victimTx}" target="_blank">victim tx ↗</a>
+          <a href="https://sepolia.etherscan.io/tx/${data.botTx}"    target="_blank">bot tx ↗</a>
+          <a href="https://sepolia.etherscan.io/block/${data.block}" target="_blank">block ↗</a>
+        </div>
+      `;
+      list.prepend(div);
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+
+      if (data.aiAnalysis) {
+        document.getElementById("ai-text").textContent = data.aiAnalysis;
+      }
+    }
+
+    function addPrevented(data) {
+      preventedCount++;
+      document.getElementById("stat-prevented").textContent = preventedCount;
+
+      addTimeline("prevented", `🛡️ Attack PREVENTED — safe gas: ${parseFloat(data.safeGasPrice).toFixed(1)} gwei`);
+
+      const list = document.getElementById("attack-list");
+      const div  = document.createElement("div");
+      div.className = "attack-item prevented flash";
+      div.innerHTML = `
+        <div class="badge badge-prevented">ATTACK PREVENTED ✅</div>
+        <div class="saved">🛡️ PROTECTED</div>
+        <div class="detail">↳ swapped: ${data.amountIn} Token A</div>
+        <div class="detail">↳ safe gas price: ${parseFloat(data.safeGasPrice).toFixed(1)} gwei</div>
+        <div class="detail">↳ slippage protection: max 1%</div>
+        <div class="detail">↳ min acceptable out: ${parseFloat(data.minOut).toFixed(6)} Token B</div>
+        <div class="links">
+          <a href="https://sepolia.etherscan.io/tx/${data.txHash}" target="_blank">protected tx ↗</a>
+        </div>
+      `;
+      list.prepend(div);
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+    }
+
+    // WebSocket
+    function connect() {
+      const ws = new WebSocket("ws://localhost:3001");
+
+      ws.onopen = () => {
+        document.getElementById("status-text").textContent = "LIVE";
+        document.getElementById("status-dot").classList.remove("red");
+        addTimeline("ok", "✅ Connected to MEV bot server");
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "detected") {
+          addTimeline("victim", `🟡 Victim swap detected — ${msg.amountIn} Token A`);
+        }
+        if (msg.type === "frontrun") {
+          addTimeline("bot", `🔴 Front-run fired — ${parseFloat(msg.botGas).toFixed(1)} gwei`);
+        }
+        if (msg.type === "confirmed") {
+          addTimeline("bot", `💸 Attack confirmed — block #${msg.block} — loss: ${parseFloat(msg.loss).toFixed(6)} Token B`);
+          addAttack(msg);
+        }
+        if (msg.type === "prevented") {
+          addPrevented(msg);
+        }
+      };
+
+      ws.onclose = () => {
+        document.getElementById("status-text").textContent = "RECONNECTING";
+        document.getElementById("status-dot").classList.add("red");
+        addTimeline("bot", "⚠️ Connection lost — retrying in 3s...");
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        addTimeline("bot", "⚠️ Cannot reach bot server — is it running?");
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>

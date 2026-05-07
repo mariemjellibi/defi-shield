@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DeFi Shield — MEV Attack Detector</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>⚡ DEFI SHIELD ⚡</h1>
+      <p>MEV SANDWICH ATTACK DETECTOR // POWERED BY AI <span class="blink">█</span></p>
+    </div>
+
+    <!-- SCAN BOX -->
+    <div class="scan-box">
+      <label>// PASTE YOUR ETHEREUM WALLET ADDRESS</label>
+      <input
+        type="text"
+        id="address-input"
+        placeholder="0x556ac4330897743b14B074431B5118790ae876b9"
+      />
+      <button class="btn" onclick="scanWallet()">
+        ⚡ SCAN MY WALLET FOR MEV ATTACKS
+      </button>
+      <div style="text-align:center; margin-top:16px;">
+        <a href="/demo" style="font-size:12px; letter-spacing:2px; color:#ff3131;">
+          ⚡ OR WATCH A LIVE ATTACK DEMO →
+        </a>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="how-it-works">
+      <div class="step-card">
+        <div class="step-num">01</div>
+        <div class="step-title">PASTE ADDRESS</div>
+        <div class="step-desc">Enter any Ethereum wallet address to scan its transaction history</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">02</div>
+        <div class="step-title">AI ANALYSIS</div>
+        <div class="step-desc">Our engine scans for sandwich attack patterns and calculates your losses</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">03</div>
+        <div class="step-title">GET PROTECTED</div>
+        <div class="step-desc">Learn exactly what happened and how to protect yourself next time</div>
+      </div>
+    </div>
+
+    <!-- WHAT IS MEV -->
+    <div class="scan-box" style="margin-bottom:24px;">
+      <label>// WHAT IS AN MEV SANDWICH ATTACK?</label>
+      <p style="font-size:12px; color:#00aa2b; line-height:1.9; margin-bottom:12px;">
+        Every time you swap tokens on a DEX like Uniswap, your transaction sits in a
+        public waiting room called the <span style="color:#00ff41;">mempool</span> before
+        it confirms. Anyone in the world can see it.
+      </p>
+      <p style="font-size:12px; color:#00aa2b; line-height:1.9; margin-bottom:12px;">
+        MEV bots watch the mempool 24/7. When they spot your swap they
+        <span style="color:#ff3131;">jump ahead of you</span> by paying a higher gas fee,
+        move the price against you, then sell immediately after your transaction confirms —
+        pocketing the difference.
+      </p>
+      <p style="font-size:12px; color:#00aa2b; line-height:1.9;">
+        You receive <span style="color:#ff3131;">fewer tokens than you expected</span> and
+        never know why. This tool finds every time it happened to you and explains exactly
+        what to do next time.
+      </p>
+    </div>
+
+    <!-- STATS BAR -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-label">ATTACKS ON ETHEREUM TODAY</div>
+        <div class="stat-value" style="font-size:20px;">~180,000</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-label">EXTRACTED FROM USERS DAILY</div>
+        <div class="stat-value red" style="font-size:20px;">$1,000,000+</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">USERS WHO KNOW IT HAPPENED</div>
+        <div class="stat-value" style="font-size:20px;">~0%</div>
+      </div>
+    </div>
+
+    <!-- SECURITY NOTICE -->
+    <div class="warning-box">
+      <h3>// SECURITY NOTICE</h3>
+      <ul>
+        <li>This tool only reads PUBLIC blockchain data — your funds are never at risk</li>
+        <li>We never ask for your private key or seed phrase</li>
+        <li>If any tool asks for your private key — it is a scam</li>
+        <li>Your wallet address is safe to share — only your private key is secret</li>
+        <li>Never interact with random tokens that appear in your wallet</li>
+        <li>Always verify the full address before sending any transaction</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <script>
+    function scanWallet() {
+      const address = document.getElementById("address-input").value.trim();
+
+      if (!address || !address.startsWith("0x")) {
+        alert("Please enter a valid Ethereum address starting with 0x");
+        return;
+      }
+
+      if (address.length !== 42) {
+        alert("Ethereum addresses are exactly 42 characters long (including 0x)");
+        return;
+      }
+
+      localStorage.setItem("scanAddress", address);
+      window.location.href = "/results";
+    }
+
+    document.getElementById("address-input").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") scanWallet();
+    });
+  </script>
+</body>
+</html>
